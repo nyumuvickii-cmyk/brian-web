@@ -1,9 +1,9 @@
-const express  = require('express');
-const cors     = require('cors');
-const path     = require('path');
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 const { getDb } = require('./db');
 
-const app  = express();
+const app = express();
 const PORT = 3000;
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname)));
 // GET  /api/menu  — return all menu items
 app.get('/api/menu', async (req, res) => {
   try {
-    const db    = await getDb();
+    const db = await getDb();
     const items = db.prepare('SELECT * FROM menu_items ORDER BY category, id').all();
     res.json({ success: true, data: items });
   } catch (err) {
@@ -29,7 +29,7 @@ app.get('/api/menu', async (req, res) => {
 // GET  /api/orders  — return all orders (newest first)
 app.get('/api/orders', async (req, res) => {
   try {
-    const db     = await getDb();
+    const db = await getDb();
     const orders = db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
     const result = orders.map(order => ({
       ...order,
@@ -50,10 +50,10 @@ app.post('/api/orders', async (req, res) => {
   }
 
   try {
-    const db       = await getDb();
+    const db = await getDb();
     const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const tax      = parseFloat((subtotal * 0.08).toFixed(2));
-    const total    = parseFloat((subtotal + tax).toFixed(2));
+    const tax = parseFloat((subtotal * 0.08).toFixed(2));
+    const total = parseFloat((subtotal + tax).toFixed(2));
 
     const placeOrder = db.transaction(() => {
       const { lastInsertRowid: orderId } = db.prepare(
@@ -79,7 +79,7 @@ app.post('/api/orders', async (req, res) => {
 // GET  /api/orders/:id  — get a single order
 app.get('/api/orders/:id', async (req, res) => {
   try {
-    const db    = await getDb();
+    const db = await getDb();
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get([req.params.id]);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
     order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all([order.id]);
