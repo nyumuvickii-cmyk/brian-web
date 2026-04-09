@@ -111,13 +111,18 @@ app.get('*', (req, res) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────
-getDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`\n🔥 BurgerBlaze backend running!`);
-    console.log(`   Frontend : http://localhost:${PORT}`);
-    console.log(`   API Base : http://localhost:${PORT}/api\n`);
+if (require.main === module) {
+  getDb().then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n🔥 BurgerBlaze backend running!`);
+      console.log(`   Frontend : http://localhost:${PORT}`);
+      console.log(`   API Base : http://localhost:${PORT}/api\n`);
+    });
+  }).catch(err => {
+    console.error('❌ Failed to initialise database:', err);
+    process.exit(1);
   });
-}).catch(err => {
-  console.error('❌ Failed to initialise database:', err);
-  process.exit(1);
-});
+}
+
+// Export the Express API for Vercel serverless function
+module.exports = app;

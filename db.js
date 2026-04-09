@@ -30,8 +30,12 @@ async function getDb() {
 
   // ── Helper: save db to disk after every mutation ─────────────────────────────
   function persist() {
-    const data = db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
+    try {
+      const data = db.export();
+      fs.writeFileSync(DB_PATH, Buffer.from(data));
+    } catch (err) {
+      console.warn('Could not persist database to disk. This is expected in serverless environments.', err.message);
+    }
   }
 
   // ── Create tables ─────────────────────────────────────────────────────────────
