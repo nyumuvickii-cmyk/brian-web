@@ -244,7 +244,9 @@
     </div>
 
     <script>
-        const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000/api' : '/api';
+        const API_BASE = (window.location.hostname === 'localhost' || window.location.protocol === 'file:') 
+            ? 'http://localhost:3000/api' 
+            : 'https://brian-web.onrender.com/api';
         
         async function fetchOrders() {
             try {
