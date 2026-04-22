@@ -122,25 +122,29 @@ async function getDb() {
   function get(sql, params = []) {
     return all(sql, params)[0] ?? null;
   }
+  let inTransaction = false;
 
   function run(sql, params = []) {
     db.run(sql, params);
     const lastId = db.exec('SELECT last_insert_rowid() AS id')[0]?.values[0]?.[0] ?? null;
-    persist();
+    if (!inTransaction) persist();
     return { lastInsertRowid: lastId };
   }
 
   // Transaction helper – runs fn() and persists once at the end
   function transaction(fn) {
     return () => {
+      inTransaction = true;
       db.run('BEGIN');
       try {
         const result = fn();
         db.run('COMMIT');
+        inTransaction = false;
         persist();
         return result;
       } catch (e) {
-        db.run('ROLLBACK');
+        try { db.run('ROLLBACK'); } catch (err) {}
+        inTransaction = false;
         throw e;
       }
     };
