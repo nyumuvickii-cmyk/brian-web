@@ -71,10 +71,42 @@ app.post('/api/orders', async (req, res) => {
 
     const orderId = placeOrder();
     res.status(201).json({ success: true, orderId, message: 'Order placed successfully!' });
+
+    // Send Telegram Notification asynchronously
+    notifyTelegram({ name, phone, address, total, payment, items }).catch(console.error);
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+async function notifyTelegram(orderData) {
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+
+  const itemDetails = orderData.items.map(i => `- ${i.quantity}x ${i.name} (KSh ${i.price})`).join('\n');
+  const message = `🚨 *NEW ORDER RECEIVED!* 🚨
+*Customer:* ${orderData.name}
+*Phone:* ${orderData.phone}
+*Address:* ${orderData.address}
+*Payment:* ${orderData.payment}
+*Total:* KSh ${orderData.total}
+
+*Items:*
+${itemDetails}`;
+
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'Markdown'
+    })
+  });
+}
+
 
 // GET  /api/orders/:id  — get a single order
 app.get('/api/orders/:id', async (req, res) => {
@@ -103,6 +135,11 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// Admin Dashboard route
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // Catch-all: serve index.html for any unknown route
