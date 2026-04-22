@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const https = require('https');
 const { getDb } = require('./db');
 
 const app = express();
@@ -83,27 +84,58 @@ app.post('/api/orders', async (req, res) => {
 async function notifyTelegram(orderData) {
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
   const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('⚠️ Telegram notification skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing from environment variables.');
+    return;
+  }
 
   const itemDetails = orderData.items.map(i => `- ${i.quantity}x ${i.name} (KSh ${i.price})`).join('\n');
-  const message = `🚨 *NEW ORDER RECEIVED!* 🚨
-*Customer:* ${orderData.name}
-*Phone:* ${orderData.phone}
-*Address:* ${orderData.address}
-*Payment:* ${orderData.payment}
-*Total:* KSh ${orderData.total}
+  const message = `🚨 *NEW ORDER RECEIVED!* 🚨\n*Customer:* ${orderData.name}\n*Phone:* ${orderData.phone}\n*Address:* ${orderData.address}\n*Payment:* ${orderData.payment}\n*Total:* KSh ${orderData.total}\n\n*Items:*\n${itemDetails}`;
 
-*Items:*
-${itemDetails}`;
+  const payload = JSON.stringify({
+    chat_id: TELEGRAM_CHAT_ID,
+    text: message,
+    parse_mode: 'Markdown'
+  });
 
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const options = {
+    hostname: 'api.telegram.org',
+    port: 443,
+    path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text: message,
-      parse_mode: 'Markdown'
-    })
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (!json.ok) {
+            console.error('⚠️ Telegram API Error:', json.description);
+          } else {
+            console.log('✅ Telegram alert successfully sent to your phone!');
+          }
+          resolve(json);
+        } catch (e) {
+          resolve(data);
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      console.error('⚠️ Telegram HTTP request failed:', e.message);
+      reject(e);
+    });
+
+    req.write(payload);
+    req.end();
   });
 }
 
